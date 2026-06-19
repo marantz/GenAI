@@ -1,0 +1,19 @@
+# 수집한 인스타 사용자 이미지 (repo 동기화 제외)
+prompts/instagram/users/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# 로그
+*.log
+run.log
+
+# Claude Code 로컬 설정
+**/.claude/settings.local.json
+
+# macOS
+.DS_Store
