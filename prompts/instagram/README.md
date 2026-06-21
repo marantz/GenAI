@@ -43,18 +43,27 @@ python analyze.py
 
 ### 옵션 / 환경변수
 
-| 옵션 | 환경변수 | 기본값 |
-|------|----------|--------|
-| `--base-url` | `VLM_BASE_URL` | `http://192.168.11.126:8000/v1` |
-| `--model`    | `VLM_MODEL`    | `nvidia/diffusiongemma-26B-A4B-it-NVFP4` |
-| `--api-key`  | `VLM_API_KEY`  | `EMPTY` |
-| `--root`     | -              | `<스크립트 위치>/users` |
-| `--max-size` | -              | `1024` (이미지 긴 변 최대 픽셀) |
-| `--lists`    | -              | `<스크립트 위치>/lists.txt` |
-| `--output`   | -              | `<스크립트 위치>/instagram.txt` |
+| 옵션 | 환경변수 | 기본값 | 설명 |
+|------|----------|--------|------|
+| `--base-url` | `VLM_BASE_URL` | `http://192.168.11.126:8000/v1` | vLLM 서버 주소 |
+| `--model`    | `VLM_MODEL`    | `nvidia/diffusiongemma-26B-A4B-it-NVFP4` | 사용할 VLM 모델 |
+| `--api-key`  | `VLM_API_KEY`  | `EMPTY` | API 키 (로컬 서버는 임의값) |
+| `--root`     | -              | `<스크립트 위치>/users` | 이미지 루트 디렉토리 |
+| `--max-size` | -              | `1024` | 이미지 긴 변 최대 픽셀 |
+| `--focus`    | -              | `default` | 묘사 초점: `default`(배경·몸매·의상·포즈) / `clothing`(의상 색상·소재·실루엣·패턴 상세) |
+| `--max-tokens` | -            | `512` | 응답 최대 토큰 (`clothing` 모드 시 1024+ 권장) |
+| `--lists`    | -              | `<스크립트 위치>/lists.txt` | 처리 목록 파일 |
+| `--output`   | -              | `<스크립트 위치>/instagram.txt` | 캡션 출력 파일 |
 
 예:
 
 ```bash
+# 기본 (배경·몸매·의상·포즈)
 python analyze.py --model nvidia/diffusiongemma-26B-A4B-it-NVFP4 --max-size 768
+
+# 의상 상세 묘사 모드
+python analyze.py --focus clothing --max-tokens 1024
+
+# VLM 서버 주소 변경
+VLM_BASE_URL=http://10.0.0.5:8000/v1 python analyze.py
 ```

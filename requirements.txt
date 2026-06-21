@@ -1,0 +1,10 @@
+# Python dependencies for GenAI tools
+# Install: pyenv activate tools && pip install -r requirements.txt
+#
+# System tools required by shell scripts (install via Homebrew):
+#   brew install yt-dlp ffmpeg
+#   (sips, rsync, nc are macOS built-ins)
+
+# prompts/instagram/analyze.py
+openai>=1.30.0
+Pillow>=10.0.0
