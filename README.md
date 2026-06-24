@@ -8,11 +8,14 @@
 ```
 GenAI/
 ├── requirements.txt    # Python 의존성 (openai, Pillow)
-├── .gitignore          # users/ 이미지·로그·캐시 등 동기화 제외 설정
+├── .gitignore          # users/, mymuse/source·lora/ 등 동기화 제외 설정
 ├── scripts/            # 단독 실행형 셸 유틸리티 (영상/이미지/백업/네트워크)
-└── prompts/
-    └── instagram/      # 인스타 이미지 수집 + VLM 분석 파이프라인
-        └── users/      # 수집 이미지 (.gitignore 로 제외 — repo 에 동기화 안 됨)
+├── prompts/
+│   └── instagram/      # 인스타 이미지 수집 + VLM 분석/강화 파이프라인
+│       └── users/      # 수집 이미지 (.gitignore 로 제외 — repo 에 동기화 안 됨)
+└── mymuse/             # source 사진 → ai-toolkit LoRA 데이터셋 빌더
+    ├── source/          # 원본 인물 사진 (.gitignore 로 제외)
+    └── lora/            # 생성된 데이터셋 + 학습 YAML (.gitignore 로 제외)
 ```
 
 ---
@@ -92,6 +95,7 @@ chmod +x prompts/instagram/*.sh
 |------|------|
 | `save-insta-images.sh` | cmux 브라우저(WKWebView)의 로그인 세션 안에서 in-page `fetch()` 로 현재 보이는 인스타 이미지를 저장 (봇 탐지 우회). `users/<사용자>/` 폴더로 수집 |
 | `analyze.py` | 사용자 폴더의 이미지를 VLM으로 분석 → 여성 사진 설명을 `instagram.txt` 에 한 줄씩 append |
+| `enhance.py` | `instagram.txt` 등 줄 단위 프롬프트 파일을 OpenAI 호환 API로 한 줄씩 더 구체적으로 강화. 원본/변환본을 2단 비교 출력하고 결과는 항상 새 파일(`*.enhanced.txt`)로 저장 |
 | `setup.sh` | pyenv 가상환경 `insta_vlm` 생성 + 의존성 설치 + `.python-version` 고정 |
 | `requirements.txt` | 의존성 (`openai`, `Pillow`) |
 | `lists.txt` | 처리한 `사용자/이미지명` 기록 (재실행 시 미처리분만 처리) |
@@ -120,3 +124,52 @@ python analyze.py             # users/ 분석 → instagram.txt 누적
 | `--max-tokens` | – | `512` (`clothing` 모드 시 1024+ 권장) |
 
 자세한 내용은 [`prompts/instagram/README.md`](prompts/instagram/README.md) 참고.
+
+---
+
+## mymuse/ — source 사진 → LoRA 데이터셋 빌더
+
+`source/<model>/<person>/` 의 원본 인물 사진을 `ai-toolkit`(ostris) 학습 규격의
+`image.jpg` + `image.txt` 데이터셋으로 증분 변환하고, Z-Image-Turbo LoRA 학습용
+YAML config 를 함께 생성한다. 얼굴 감지는 InsightFace(CPU) 를 우선 사용하고,
+실패 시 OpenCV Haar cascade 로 폴백한다.
+
+### 구성 요소
+
+| 파일/디렉토리 | 역할 |
+|------|------|
+| `prepare_dataset.py` | CLI 엔트리포인트. `--model`/`--person` 으로 대상 지정 |
+| `modules/scanner.py` | `source/<model>/<person>/` 에서 아직 처리하지 않은 신규 이미지만 탐색 |
+| `modules/face_processor.py` | 얼굴 감지(InsightFace → Haar 폴백) + 크롭/리사이즈 |
+| `modules/captioner.py` | trigger word 를 포함한 캡션 생성 |
+| `modules/dataset_builder.py` | `lora/<model>/<person>/dataset/` 에 jpg+txt 쌍 저장 |
+| `modules/config_generator.py` | Z-Image-Turbo LoRA 학습 YAML 생성/갱신 |
+| `source/<model>/<person>/` | 원본 사진 (`.gitignore` 로 제외 — repo 에 동기화 안 됨) |
+| `lora/<model>/<person>/` | 생성된 데이터셋 + 학습 YAML (`.gitignore` 로 제외) |
+| `tests/` | pytest 단위 테스트 (scanner/face_processor/captioner/config_generator/dataset_builder) |
+| `docs/superpowers/specs/`, `docs/superpowers/plans/` | 설계 스펙 및 구현 계획 문서 |
+
+### 빠른 시작
+
+```bash
+cd mymuse
+pip install -r requirements.txt
+python prepare_dataset.py --model Z-Image-Turbo --person sara
+```
+
+재실행 시 이미 처리된 이미지는 건드리지 않고 신규 이미지만 증분 처리하며,
+YAML config 는 매 실행마다 새로 갱신된다.
+
+주요 옵션 (`prepare_dataset.py`):
+
+| 옵션 | 기본값 | 설명 |
+|------|--------|------|
+| `--model`, `-m` | (필수) | `source/<model>/` 디렉토리 이름 |
+| `--person`, `-p` | (필수) | `source/<model>/<person>/` 디렉토리 이름 |
+| `--trigger-word` | `quahand <person>` | LoRA 트리거 단어 |
+| `--lora-rank` | `64` | LoRA rank |
+| `--steps` | `4000` | 학습 스텝 수 |
+| `--target-resolution` | `1024` | 출력 이미지 한 변 크기 |
+| `--min-face-size` | `64` | 얼굴 인식 최소 크기(px) |
+| `--face-crop-padding` | `1.8` | 얼굴 크롭 패딩 비율 |
+| `--no-face-filter` | – | 얼굴 감지/필터링 비활성화 |
