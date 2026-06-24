@@ -1,0 +1,6 @@
+{
+  "base_url": "https://your-openai-compatible-server/v1",
+  "api_key": "sk-...",
+  "model": "gpt-4o-mini",
+  "temperature": 0.7
+}
