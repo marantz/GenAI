@@ -30,7 +30,9 @@
 - Create: `tests/test_scanner.py`
 - Create: `requirements.txt`
 - Create: `requirements-dev.txt`
-- Create: `.gitignore`
+- Modify: `../.gitignore` (git 루트가 `mymuse/`의 상위 디렉토리이며, 이미 `prompts/instagram/users/` 같은 서브프로젝트별 항목을 담은 루트 `.gitignore`가 존재함 — 새 파일을 만들지 말고 여기에 섹션을 추가한다)
+
+**주의:** 이 태스크의 모든 상대 경로(`modules/`, `tests/`, `requirements*.txt`)는 `mymuse/` 디렉토리 기준이다. `.gitignore`만 예외로, git 저장소 루트(`mymuse/`의 부모 디렉토리)에 있는 기존 파일을 수정한다.
 
 **Interfaces:**
 - Produces: `modules.scanner.sanitize_stem(name: str) -> str`
@@ -64,10 +66,12 @@ insightface
 pytest
 ```
 
-`.gitignore`:
+git 루트의 기존 `.gitignore` (`/Users/marantz/Sources/ZY_Tools/GenAI/.gitignore`) 끝에 추가:
 ```
-/source/
-/lora/
+
+# mymuse 데이터셋 작업 디렉토리 (repo 동기화 제외)
+mymuse/source/
+mymuse/lora/
 ```
 
 - [ ] **Step 3: 의존성 설치**
@@ -220,9 +224,11 @@ Expected: 6 passed
 - [ ] **Step 8: 커밋**
 
 ```bash
-git add modules/__init__.py modules/scanner.py tests/__init__.py tests/test_scanner.py requirements.txt requirements-dev.txt .gitignore
+git add modules/__init__.py modules/scanner.py tests/__init__.py tests/test_scanner.py requirements.txt requirements-dev.txt ../.gitignore
 git commit -m "feat: add source scanner with incremental skip logic"
 ```
+
+(CWD가 `mymuse/`이므로 `../.gitignore`는 git 루트의 기존 `.gitignore`를 가리킨다.)
 
 ---
 
