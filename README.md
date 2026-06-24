@@ -7,11 +7,57 @@
 
 ```
 GenAI/
+├── requirements.txt    # Python 의존성 (openai, Pillow)
 ├── .gitignore          # users/ 이미지·로그·캐시 등 동기화 제외 설정
 ├── scripts/            # 단독 실행형 셸 유틸리티 (영상/이미지/백업/네트워크)
 └── prompts/
     └── instagram/      # 인스타 이미지 수집 + VLM 분석 파이프라인
         └── users/      # 수집 이미지 (.gitignore 로 제외 — repo 에 동기화 안 됨)
+```
+
+---
+
+## 설치 가이드
+
+### 사전 요구사항
+
+| 도구 | 설치 방법 | 용도 |
+|------|-----------|------|
+| [pyenv](https://github.com/pyenv/pyenv) | `brew install pyenv pyenv-virtualenv` | Python 버전·가상환경 관리 |
+| [Homebrew](https://brew.sh) | `/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"` | macOS 패키지 관리 |
+| yt-dlp | `brew install yt-dlp` | YouTube/LinkedIn 영상 다운로드 |
+| ffmpeg | `brew install ffmpeg` | 영상 재인코딩 (H264 변환) |
+
+> `sips`, `rsync`, `nc` 는 macOS 기본 내장이므로 별도 설치 불필요.
+
+---
+
+### Python 환경 설정 (`tools` 가상환경)
+
+```bash
+# 1. pyenv virtualenv 생성 (최초 1회)
+pyenv virtualenv 3.12.13 tools
+
+# 2. 의존성 설치
+pyenv activate tools
+pip install -r requirements.txt
+
+# 3. 동작 확인
+python -c "import openai, PIL; print('OK')"
+```
+
+이후 실행 시에는 `pyenv activate tools` 만으로 환경이 활성화됩니다.
+
+> **instagram 분석기** 는 별도 가상환경(`insta_vlm`)을 사용합니다.
+> `prompts/instagram/` 디렉토리에서 `bash setup.sh` 를 실행하면 자동 구성됩니다.
+
+---
+
+### 셸 스크립트 실행 권한
+
+```bash
+chmod +x scripts/*.sh
+chmod +x prompts/instagram/*.sh
 ```
 
 ---
@@ -70,5 +116,7 @@ python analyze.py             # users/ 분석 → instagram.txt 누적
 | `--model` | `VLM_MODEL` | `nvidia/diffusiongemma-26B-A4B-it-NVFP4` |
 | `--api-key` | `VLM_API_KEY` | `EMPTY` |
 | `--max-size` | – | `1024` (이미지 긴 변 최대 픽셀) |
+| `--focus` | – | `default` (`clothing` 으로 의상 상세 묘사 전환) |
+| `--max-tokens` | – | `512` (`clothing` 모드 시 1024+ 권장) |
 
 자세한 내용은 [`prompts/instagram/README.md`](prompts/instagram/README.md) 참고.
