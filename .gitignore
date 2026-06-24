@@ -1,6 +1,10 @@
 # 수집한 인스타 사용자 이미지 (repo 동기화 제외)
 prompts/instagram/users/
 
+# mymuse: source photos & generated LoRA datasets (local artifacts)
+mymuse/source/
+mymuse/lora/
+
 # Python
 __pycache__/
 *.py[cod]
