@@ -9,15 +9,17 @@
 #   3) 즉, 꼭 필요할 때만 재인코딩하여 시간/화질을 아낍니다.
 #
 # 사용법:
-#   ./yt-shorts-h264.sh <URL> [URL2 ...]
-#   ./yt-shorts-h264.sh -o ~/Downloads <URL>
-#   ./yt-shorts-h264.sh -f <URL>     # 항상 H264로 강제 재인코딩
+#   ./yt-shorts-h264.sh                 # 다운로드 디렉토리 지정 후 URL을 반복 입력
+#   ./yt-shorts-h264.sh -o ~/Downloads  # 다운로드 디렉토리를 미리 지정
+#   ./yt-shorts-h264.sh -f              # 항상 H264로 강제 재인코딩
+#
+#   URL 입력 프롬프트에서 'q' 또는 Ctrl+C(혹은 Ctrl+D)로 종료합니다.
 #
 # 필요: yt-dlp, ffmpeg  (brew install yt-dlp ffmpeg)
 
-set -euo pipefail
+set -uo pipefail
 
-OUTDIR="."
+OUTDIR=""
 FORCE_REENCODE=0
 CRF=18          # 재인코딩 화질(낮을수록 고화질, 18~23 권장)
 PRESET="slow"  # 재인코딩 속도/압축 트레이드오프
@@ -28,23 +30,26 @@ usage() {
 }
 
 # ---- 인자 파싱 ----
-URLS=()
 while [[ $# -gt 0 ]]; do
   case "$1" in
     -o|--output) OUTDIR="$2"; shift 2 ;;
     -f|--force)  FORCE_REENCODE=1; shift ;;
     -h|--help)   usage 0 ;;
     -*)          echo "알 수 없는 옵션: $1" >&2; usage 1 ;;
-    *)           URLS+=("$1"); shift ;;
+    *)           echo "알 수 없는 인자: $1" >&2; usage 1 ;;
   esac
 done
-
-[[ ${#URLS[@]} -eq 0 ]] && { echo "URL을 하나 이상 지정하세요." >&2; usage 1; }
 
 # ---- 의존성 확인 ----
 for bin in yt-dlp ffmpeg ffprobe; do
   command -v "$bin" >/dev/null 2>&1 || { echo "오류: '$bin' 이(가) 필요합니다. 'brew install yt-dlp ffmpeg'" >&2; exit 1; }
 done
+
+# ---- 다운로드 디렉토리 지정 ----
+if [[ -z "$OUTDIR" ]]; then
+  read -rp "다운로드 디렉토리 (기본값: 현재 디렉토리): " OUTDIR
+  OUTDIR="${OUTDIR:-.}"
+fi
 
 mkdir -p "$OUTDIR"
 OUT_TMPL="$OUTDIR/%(title).200B [%(id)s].%(ext)s"
@@ -54,7 +59,7 @@ reencode_to_h264() {
   local f="$1"
   local vcodec
   vcodec=$(ffprobe -v error -select_streams v:0 -show_entries stream=codec_name \
-                   -of default=nw=1:nk=1 "$f")
+                   -of default=nw=1:nk=1 "$f") || { echo "  ! 코덱 확인 실패: $f" >&2; return 1; }
 
   if [[ "$FORCE_REENCODE" -eq 0 && "$vcodec" == "h264" ]]; then
     echo "  · 이미 H264입니다 — 재인코딩 생략"
@@ -67,15 +72,16 @@ reencode_to_h264() {
     -c:v libx264 -preset "$PRESET" -crf "$CRF" \
     -c:a aac -b:a 192k \
     -movflags +faststart \
-    "$tmp"
+    "$tmp" || { echo "  ! 재인코딩 실패: $f" >&2; return 1; }
   mv -f "$tmp" "$f"
 }
 
-for url in "${URLS[@]}"; do
+download_one() {
+  local url="$1"
   echo "▶ 처리 중: $url"
 
   # H264(avc1) 우선 선택 → 없으면 최선 포맷. mp4 컨테이너로 합치되 재인코딩은 안 함.
-  # 최종 파일 경로를 stdout으로 받아 캡처한다.
+  local filepath
   filepath=$(
     yt-dlp \
       -f "bv*[vcodec^=avc1]+ba[ext=m4a]/bv*[vcodec^=avc1]+ba/bv*+ba/b" \
@@ -87,12 +93,29 @@ for url in "${URLS[@]}"; do
 
   if [[ -z "$filepath" || ! -f "$filepath" ]]; then
     echo "  ! 다운로드 결과 파일을 찾지 못했습니다: $url" >&2
-    continue
+    return 1
   fi
 
   reencode_to_h264 "$filepath"
   echo "✓ 완료: $filepath"
-  echo
+}
+
+trap 'echo; echo "중단되었습니다. 저장 위치: $OUTDIR"; exit 0' INT
+
+echo "==========================================="
+echo "  YouTube Shorts H264 다운로드"
+echo "  저장 위치: $OUTDIR"
+echo "  종료하려면 'q' 입력 또는 Ctrl+C"
+echo "==========================================="
+
+while true; do
+  read -rp $'\nURL 입력 (q: 종료): ' url || break
+  case "$url" in
+    q|Q|quit|exit) break ;;
+    "") continue ;;
+  esac
+  download_one "$url"
 done
 
+echo
 echo "모든 작업이 끝났습니다. 저장 위치: $OUTDIR"
