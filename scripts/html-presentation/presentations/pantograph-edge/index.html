@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>pantograph-edge — 프로젝트 프리젠테이션</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div id="progress-bar"></div>
+<nav id="dot-nav" aria-label="섹션 내비게이션"></nav>
+
+<!-- ============ 1. COVER ============ -->
+<section class="slide" id="cover" aria-label="표지">
+  <div class="bg-grid" aria-hidden="true"></div>
+  <div class="orbit o1" aria-hidden="true"></div>
+  <div class="orbit o2" aria-hidden="true"></div>
+  <div class="orbit o3" aria-hidden="true"></div>
+  <div class="slide-inner">
+    <div class="kicker">DEEPX M1 NPU · Edge AI Vision</div>
+    <h1>pantograph-edge</h1>
+    <p class="tagline">라즈베리파이 + DEEPX M1 NPU 기반, 6채널 팬터그래프 실시간 검출·배경제거 엣지 시스템</p>
+    <div class="badges" id="cover-badges">
+      <span class="badge stack">C++17</span>
+      <span class="badge stack">DEEPX DXRT</span>
+      <span class="badge stack">ONNX Runtime</span>
+      <span class="badge stack">GStreamer</span>
+      <span class="badge stack">OpenCV4</span>
+      <span class="badge stack">CMake ≥ 3.16</span>
+      <span class="badge stack">Raspberry Pi</span>
+    </div>
+    <div class="scrolldown">
+      <span>SCROLL</span>
+      <span class="chevrons">
+        <svg width="16" height="9" viewBox="0 0 16 9"><path d="M1 1L8 8L15 1" stroke="currentColor" stroke-width="1.6" fill="none"/></svg>
+        <svg width="16" height="9" viewBox="0 0 16 9"><path d="M1 1L8 8L15 1" stroke="currentColor" stroke-width="1.6" fill="none"/></svg>
+      </span>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 2. AI MODEL PIPELINE ============ -->
+<section class="slide" id="ai-pipeline" aria-label="AI 모델 변환 파이프라인">
+  <div class="slide-inner">
+    <div class="section-head">
+      <div class="eyebrow reveal">AI Model Pipeline</div>
+      <h2 class="reveal">학습된 모델이 NPU에서 돌기까지 — ONNX 변환과 INT8 양자화</h2>
+      <p class="lede reveal d1">검출기·배경제거 모델이 <code>.dxnn</code> 바이너리가 되기까지의 경로. 저장소에서 직접 확인한 FACT와 업계 관행에 기반한 ASSUMPTION을 구분했다.</p>
+    </div>
+
+    <div class="legend reveal d2">
+      <span class="badge fact">FACT — 저장소에서 직접 확인</span>
+      <span class="badge assumption">ASSUMPTION — 외부 툴체인 추정(가정)</span>
+    </div>
+
+    <div class="pipeline-wrap">
+      <div class="pipeline-track" id="pipeline-track">
+        <svg class="flow-line" id="flow-line" preserveAspectRatio="none"></svg>
+
+        <div class="stage reveal" data-stage="1">
+          <span class="stage-num">STAGE 1</span>
+          <svg class="stage-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 2v6M12 2c-3 0-5 2-5 5s2 5 5 5 5-2 5-5-2-5-5-5zM7 20l1.5-6M17 20l-1.5-6M4 20h16"/></svg>
+          <h4>모델 학습 (외부 GPU 서버)</h4>
+          <p>두 모델 모두 저장소 밖 GPU 서버에서 학습. 엣지는 완성된 아티팩트만 전달받는다.</p>
+          <span class="badge fact">FACT · docs/git-project-design-brief.md:11</span>
+        </div>
+
+        <div class="stage reveal d1" data-stage="2">
+          <span class="stage-num">STAGE 2</span>
+          <svg class="stage-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M8 9h8M8 13h8M8 17h4"/></svg>
+          <h4>ONNX 변환</h4>
+          <p>검출기는 float32 ONNX(<code>case_3.onnx</code>)로 존재. <span class="mono">[1,3,640,640]</span> → <span class="mono">[1,300,6]</span> (YOLO 계열 NMS 박스).</p>
+          <span class="badge fact">FACT · engine/docs/edge-handoff.md:79-84</span>
+        </div>
+
+        <div class="stage assumption-stage reveal d2" data-stage="3">
+          <span class="stage-num">STAGE 3</span>
+          <svg class="stage-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 4h16v16H4z"/><path d="M9 9h6v6H9z"/><path d="M4 9h2M4 14h2M18 9h2M18 14h2M9 4v2M14 4v2M9 18v2M14 18v2"/></svg>
+          <h4>캘리브레이션 + INT8 PTQ</h4>
+          <p>대표 프레임으로 보정 후 INT8 PTQ. DEEPX <span class="mono">dx-all-suite</span> 내부 작업으로 추정 — 캘리브레이션 데이터·스크립트·정확도 기록 없음.</p>
+          <span class="badge assumption">ASSUMPTION · 저장소 내 "INT8"/"quant" 키워드 0건</span>
+        </div>
+
+        <div class="stage assumption-stage reveal d3" data-stage="4">
+          <span class="stage-num">STAGE 4</span>
+          <svg class="stage-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 2L3 7v10l9 5 9-5V7z"/><path d="M3 7l9 5 9-5M12 12v10"/></svg>
+          <h4>dx_com 컴파일 → .dxnn</h4>
+          <p>양자화된 그래프를 M1 타깃 <span class="mono">.dxnn</span>으로 컴파일. 산출물명만 남아있고 컴파일 명령·로그는 없음.</p>
+          <span class="badge assumption">ASSUMPTION · docs/git-project-design-brief.md:31-32</span>
+        </div>
+
+        <div class="stage reveal d4" data-stage="5">
+          <span class="stage-num">STAGE 5</span>
+          <svg class="stage-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M5 12h14M5 12l4-4M5 12l4 4"/><rect x="15" y="4" width="6" height="16" rx="1"/></svg>
+          <h4>수동 배포 (scp) — Git 미포함</h4>
+          <p><span class="mono">.dxnn</span>/<span class="mono">.onnx</span>는 <code>.gitignore</code>로 차단, scp로 수동 전달. 체크섬 관리 파일(MODELS.md)은 계획만 존재.</p>
+          <span class="badge fact">FACT · .gitignore, README.md:16</span>
+        </div>
+
+        <div class="stage reveal d5" data-stage="6">
+          <span class="stage-num">STAGE 6</span>
+          <svg class="stage-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
+          <h4>NPU 런타임 로딩 + 추론</h4>
+          <p><code>DeepxRuntimeAdapter</code>가 .dxnn 경로를 그대로 전달 — 파싱 없는 블랙박스. <span class="mono">NPU_2</span>/<span class="mono">NPU_01</span> 코어 바인딩으로 경합 회피.</p>
+          <span class="badge fact">FACT · deepx_runtime_adapter.cpp:140-164</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="callout fact-callout reveal">
+      <strong>Fact.</strong> 이 저장소는 학습·변환·양자화 코드를 포함하지 않는다. 초기 커밋(<span class="mono">b3f1dbe</span>)부터 "외부 컴파일 아티팩트만 받는다"는 원칙이 일관됐다.
+    </div>
+    <div class="callout reveal d1">
+      <strong>Assumption.</strong> STAGE 3·4의 구체 절차는 DEEPX 진영 일반 관행에 대한 추정이며, 저장소 문서·코드로 직접 검증되지 않는다.
+    </div>
+
+    <h3 class="reveal" style="margin-top:2.4rem;">두 모델의 입출력 텐서 사양</h3>
+    <div class="model-cards">
+      <div class="model-card reveal">
+        <h4>검출기 (Detector)</h4>
+        <dl>
+          <dt>manifest</dt><dd>apps/pantograph/config/detector.deepx.json</dd>
+          <dt>artifact</dt><dd class="mono">case_3.dxnn (NPU) / case_3.onnx (CPU 비교용)</dd>
+          <dt>입력</dt><dd class="mono">640×640×3, uint8, NHWC — letterbox 패딩(114,114,114)</dd>
+          <dt>출력</dt><dd class="mono">8 floats × N행 (x1,y1,x2,y2,·,conf,classId,·) — class 0=팬터그래프, class 2=다리</dd>
+          <dt>NPU 코어</dt><dd class="mono">dxrt_bound_option: NPU_2</dd>
+        </dl>
+      </div>
+      <div class="model-card reveal d1">
+        <h4>배경 제거기 (Remover)</h4>
+        <dl>
+          <dt>manifest</dt><dd>apps/pantograph/config/remover.deepx.json</dd>
+          <dt>artifact</dt><dd class="mono">yolo_backbone_remover_logits_static.dxnn</dd>
+          <dt>입력</dt><dd class="mono">512×512×3, uint8, NHWC — 검출 박스 크롭</dd>
+          <dt>출력</dt><dd class="mono">512×512 float32 logits → 임계값(≥0) 이진 마스크</dd>
+          <dt>NPU 코어</dt><dd class="mono">dxrt_bound_option: NPU_01 (2코어)</dd>
+        </dl>
+      </div>
+    </div>
+    <p class="reveal" style="margin-top:1rem; font-size:0.82rem;">근거: config/*.deepx.json, inference.cpp:35-163, constants.h. 파일명 기반 아키텍처 추정은 Assumption.</p>
+  </div>
+</section>
+
+<!-- ============ 3. OVERVIEW ============ -->
+<section class="slide" id="overview" aria-label="개요">
+  <div class="slide-inner">
+    <div class="section-head">
+      <div class="eyebrow reveal">Overview</div>
+      <h2 class="reveal">무엇을, 왜 만들었는가</h2>
+      <p class="lede reveal d1">전차선 팬터그래프 마모/이상을 실시간 감시하는 6채널 엣지 NPU 시스템. 추론 SDK(<code>npu_engine</code>)와 앱(<code>apps/pantograph</code>)을 분리한 모노레포.</p>
+    </div>
+
+    <div class="fact-grid reveal d2">
+      <div class="fact-card"><span class="num">6</span><span class="label">동시 RTSP 채널</span></div>
+      <div class="fact-card"><span class="num">~120</span><span class="label">FPS (6채널 합산, frame-skip 7)</span></div>
+      <div class="fact-card"><span class="num">0.142</span><span class="label">평균 검출률 / frame</span></div>
+      <div class="fact-card"><span class="num">13</span><span class="label">CTest 유닛 테스트</span></div>
+      <div class="fact-card"><span class="num">3</span><span class="label">런타임 어댑터 (deepx/onnx/fake)</span></div>
+      <div class="fact-card"><span class="num">1주</span><span class="label">가시적 커밋 기간 (2026-06-10 ~ 17)</span></div>
+    </div>
+
+    <div class="callout fact-callout reveal d3">
+      <strong>Fact.</strong> 채널당 스레드 1개가 두 Engine을 락 없이 공유 — 스레드-안전성 계약과 동시성 테스트로 뒷받침된다. <span class="badge evidence">engine.h:22-31</span>
+    </div>
+    <div class="callout reveal d4">
+      <strong>Assumption.</strong> 6채널·엣지·NPU 조합을 택한 배경(비용/설치 제약)은 문서에 명시돼 있지 않다 — 철도 현장 특성상 추정할 뿐이다.
+    </div>
+  </div>
+</section>
+
+<!-- ============ 4. SOURCE TREE ============ -->
+<section class="slide" id="source-tree" aria-label="소스 구조">
+  <div class="slide-inner">
+    <div class="section-head">
+      <div class="eyebrow reveal">Source Tree</div>
+      <h2 class="reveal">모노레포 구조</h2>
+      <p class="lede reveal d1">클릭하면 우측 패널에 근거가 표시된다. 흐린 항목은 <strong>0바이트 스텁</strong>이다.</p>
+    </div>
+
+    <div class="tree-layout">
+      <div class="tree reveal d2" id="tree-root">
+
+        <details open><summary>pantograph-edge/</summary>
+          <div class="branch">
+            <div class="file ext-md" data-desc="루트 개요, 빠른 시작, 채널당 스레드 공유 모델, 성능 기준(~120FPS)을 담은 한국어 README." data-evidence="README.md 전문">README.md</div>
+
+            <details open><summary>apps/pantograph/</summary>
+              <div class="branch">
+                <details><summary>app/</summary><div class="branch">
+                  <div class="file ext-cpp" data-desc="CLI 인자 파싱 후 RunRtsp6ch() 호출. --frame-skip, --remover-queue-depth, --display 플래그 처리." data-evidence="apps/pantograph/app/main.cpp:1-74">main.cpp</div>
+                </div></details>
+                <details><summary>src/</summary><div class="branch">
+                  <div class="file ext-cpp" data-desc="6채널 오케스트레이션: Engine 2개 시작, 채널당 스레드 스폰, 그리드 디스플레이 루프, q/ESC 종료." data-evidence="apps/pantograph/src/rtsp_6ch.cpp:121-431">rtsp_6ch.cpp</div>
+                  <details><summary>internal/</summary><div class="branch">
+                    <div class="file ext-cpp" data-desc="GStreamer 파이프라인 구성: rtspsrc→h264depay→avdec→appsink(drop=true). 저지연 always-latest-frame 방식." data-evidence="gst_capture.cpp:12-23">gst_capture.cpp</div>
+                    <div class="file ext-cpp" data-desc="전처리(letterbox 640/크롭 512), 후처리(박스 디코딩/마스크 임계값), 비동기 제출." data-evidence="inference.cpp:16-235">inference.cpp</div>
+                    <div class="file ext-cpp" data-desc="6채널 그리드 레이아웃, 박스/마스크 오버레이, 픽셀→cm 다리 높이 표시(CM_PER_PIXEL=0.21835)." data-evidence="render.cpp:43-145">render.cpp</div>
+                    <div class="file ext-h" data-desc="DETECTOR_SIZE=640, REMOVER_SIZE=512, RECONNECT_SLEEP_MS=300 등 튜닝 상수 모음." data-evidence="constants.h:7-13">constants.h</div>
+                  </div></details>
+                </div></details>
+                <details><summary>config/</summary><div class="branch">
+                  <div class="file ext-json" data-desc="검출기 매니페스트 — runtime:deepx, target:m1, dxrt_bound_option:NPU_2." data-evidence="detector.deepx.json 전문">detector.deepx.json</div>
+                  <div class="file ext-json" data-desc="배경제거 매니페스트 — dxrt_bound_option:NPU_01, buffer_count:8." data-evidence="remover.deepx.json 전문">remover.deepx.json</div>
+                  <div class="file ext-txt" data-desc="RTSP URL 템플릿 (git 제외 대상 rtsp_urls.local.txt의 예시본)." data-evidence="rtsp_urls.example.txt">rtsp_urls.example.txt</div>
+                </div></details>
+                <div class="file ext-md" data-desc="앱 모듈별 단일 책임 설명, 실행 커맨드, --frame-skip 트레이드오프 설명." data-evidence="apps/pantograph/README.md">README.md</div>
+                <div class="file ext-md" data-desc="벤치 재현을 위한 판정 기준(FPS·실패율·CPU/RSS) 문서." data-evidence="apps/pantograph/TEST_README.md">TEST_README.md</div>
+              </div>
+            </details>
+
+            <details><summary>engine/  <span style="color:var(--color-text-muted);font-weight:400;">(npu_engine SDK)</span></summary>
+              <div class="branch">
+                <details><summary>cpp/include/npu_engine/</summary><div class="branch">
+                  <div class="file ext-h" data-desc="Engine 파사드: Start/Stop/Run/RunAsync/Wait. Start 이후 동시 호출 가능한 스레드-안전성 계약을 명시." data-evidence="engine.h:22-49">engine.h</div>
+                  <div class="file ext-h" data-desc="Status{ErrorCode,message} 반환형. 6개 ErrorCode는 선언만 되고 미사용(설계 질문서 Q10)." data-evidence="error.h:7-39">error.h</div>
+                  <details><summary>runtime/</summary><div class="branch">
+                    <div class="file ext-h" data-desc="fake/deepx 어댑터가 공유하는 스레드-세이프 Job 큐 (mutex 보호 unordered_map)." data-evidence="async_job_queue.h">async_job_queue.h</div>
+                  </div></details>
+                </div></details>
+                <details><summary>cpp/src/</summary><div class="branch">
+                  <details><summary>runtime/</summary><div class="branch">
+                    <div class="file ext-cpp" data-desc="manifest의 runtime 문자열로 Fake/Deepx/Onnx 어댑터를 생성하는 팩토리." data-evidence="runtime_adapter_factory.cpp:10-24">runtime_adapter_factory.cpp</div>
+                    <div class="file ext-cpp" data-desc="dxrt::InferenceEngine 래핑. .dxnn 경로를 그대로 전달(파싱/검증 없음), 소멸자에서 in-flight job 드레인." data-evidence="deepx_runtime_adapter.cpp:28-327">deepx_runtime_adapter.cpp</div>
+                    <div class="file ext-cpp" data-desc="Ort::Session 로딩, CPU 단일 스레드, float32 아닌 입력은 INPUT_SCHEMA_MISMATCH로 거부." data-evidence="onnx_runtime_adapter.cpp:114-221">onnx_runtime_adapter.cpp</div>
+                  </div></details>
+                  <details><summary>pipeline/</summary><div class="branch">
+                    <div class="file ext-cpp" data-desc="요청 텐서를 move로 어댑터에 전달 — 프레임당 약 1.2MB 동기 복사 제거." data-evidence="preprocess.cpp:55-74">preprocess.cpp</div>
+                    <div class="file ext-cpp" data-desc="런타임 출력 텐서를 그대로 통과시키는 identity pass — 모델별 디코딩은 앱의 책임." data-evidence="postprocess.cpp:27-46">postprocess.cpp</div>
+                  </div></details>
+                  <div class="file ext-cpp" data-desc="manifest 필수 필드 검증, runtime 값 검증(deepx/onnx/fake), 아티팩트 파일 존재 확인." data-evidence="model_registry.cpp:26-130">model_registry.cpp</div>
+                </div></details>
+                <details><summary>cpp/tests/  <span style="color:var(--color-text-muted);font-weight:400;">13개</span></summary><div class="branch">
+                  <div class="file ext-cpp" data-desc="Start() 이후 다중 스레드 동시 호출 계약을 검증." data-evidence="test_engine_concurrency.cpp">test_engine_concurrency.cpp</div>
+                  <div class="file ext-cpp" data-desc="deepx 어댑터 특화 동시성 시나리오 검증." data-evidence="test_deepx_concurrency.cpp">test_deepx_concurrency.cpp</div>
+                  <div class="file ext-cpp" data-desc="Stop() 후 재시작, 소멸자 드레인 등 수명주기 검증." data-evidence="test_engine_lifecycle.cpp">test_engine_lifecycle.cpp</div>
+                  <div class="file ext-txt" data-desc="나머지 9개: preprocess/postprocess/model_registry/fake_runtime/engine_contract/adapter_factory/error_mapping/deepx_runtime/c_api_lifecycle/service_health" data-evidence="engine/CMakeLists.txt:70-110">… 외 9개 테스트</div>
+                </div></details>
+                <details><summary>docs/</summary><div class="branch">
+                  <div class="file ext-md" data-desc="DEEPX dx-runtime 하우스 스타일을 벤더 헤더에서 역설계해 문서화 (PascalCase/_camelCase 규칙)." data-evidence="naming-convention.md">naming-convention.md</div>
+                  <div class="file ext-md" data-desc="Run/RunAsync/Wait/Analyze API와 엔진-통합 책임 분리표." data-evidence="tensor_api.md">tensor_api.md</div>
+                  <div class="file ext-md" data-desc="ONNX 벤치 재현 절차, 검출기 텐서 shape(images,[1,3,640,640]) 확인 근거." data-evidence="edge-rtsp-onnx-benchmark.md">edge-rtsp-onnx-benchmark.md</div>
+                  <div class="file ext-md" data-desc="타임아웃 미구현, Analyze 무사용, 미사용 에러코드 등 12개 미해결 질문 목록(대부분 미답변)." data-evidence="design-questionnaire.md">design-questionnaire.md</div>
+                  <div class="file ext-md stub" data-desc="0바이트 — 아키텍처 문서가 계획만 되고 작성되지 않음." data-evidence="wc -l = 0">architecture.md (empty)</div>
+                  <div class="file ext-md stub" data-desc="0바이트 스텁." data-evidence="wc -l = 0">deployment.md (empty)</div>
+                </div></details>
+                <details><summary>models/</summary><div class="branch">
+                  <div class="file ext-json" data-desc="개발용 매니페스트 — 하드코딩된 절대경로(/data/user/dhsun/...) 포함." data-evidence="manifest.dev.json:4">manifest.dev.json</div>
+                  <div class="file ext-json" data-desc="output_schema:'bbox' — 앱 설정의 'raw_tensor'와 불일치(작은 스키마 정합성 간극)." data-evidence="manifest.deepx.json">manifest.deepx.json</div>
+                  <div class="file ext-md stub" data-desc="0바이트 — 모델 카탈로그/체크섬 문서가 계획만 있고 없음." data-evidence="wc -l = 0">README.md (empty)</div>
+                </div></details>
+                <details><summary>packaging/ <span style="color:var(--color-risk);font-weight:400;">(전부 빈 파일)</span></summary><div class="branch">
+                  <div class="file ext-txt stub" data-evidence="wc -l = 0">install.sh (empty)</div>
+                  <div class="file ext-txt stub" data-evidence="wc -l = 0">sanity_check.sh (empty)</div>
+                  <div class="file ext-txt stub" data-evidence="wc -l = 0">uninstall.sh (empty)</div>
+                </div></details>
+              </div>
+            </details>
+
+            <details><summary>benchmarks/</summary><div class="branch">
+              <div class="file ext-md" data-desc="Python vs C++, sync/async/multiprocess 12개 구성 비교. async 큐 도입으로 91.86→129.33 FPS 향상 근거." data-evidence="BENCHMARK_RESULTS_20260604.md">BENCHMARK_RESULTS_20260604.md</div>
+              <div class="file ext-txt" data-desc="RTSP+ONNX/DXRT FPS·CPU·RSS 측정 스크립트, 프로세스 트리 CSV 기록 도구." data-evidence="experiments/rtsp_6ch_fps/">experiments/</div>
+            </div></details>
+
+            <details><summary>docs/  <span style="color:var(--color-text-muted);font-weight:400;">(설계 브리프)</span></summary><div class="branch">
+              <div class="file ext-md" data-desc="5개 저장소로 분리하는 계획. DXNN 컴파일은 외부 dx-all-suite가 담당한다고 명시." data-evidence="git-project-design-brief.md:11,31-32">git-project-design-brief.md</div>
+              <div class="file ext-md" data-desc="검출기 뒤에 VAE 이상탐지 3번째 Engine을 추가하는 설계안 (미구현)." data-evidence="collector-anomaly-pipeline-design.md">collector-anomaly-pipeline-design.md</div>
+              <div class="file ext-md" data-desc="LOC/테스트 수·백로그·잔여 리스크를 담은 시점 스냅샷 보고서." data-evidence="engine-status-review.md">engine-status-review.md</div>
+            </div></details>
+
+            <details><summary>third_party/</summary><div class="branch">
+              <div class="file ext-h" data-desc="유일한 벤더링 의존성 — manifest JSON 파싱 전용 단일 헤더." data-evidence="third_party/nlohmann/json.hpp">nlohmann/json.hpp</div>
+            </div></details>
+          </div>
+        </details>
+      </div>
+
+      <aside id="file-preview">
+        <p class="placeholder">← 트리에서 파일을 클릭하면 근거와 설명이 여기에 표시됩니다.</p>
+      </aside>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 5. ARCHITECTURE ============ -->
+<section class="slide" id="architecture" aria-label="아키텍처">
+  <div class="slide-inner">
+    <div class="section-head">
+      <div class="eyebrow reveal">Architecture</div>
+      <h2 class="reveal">6채널 파이프라인 &amp; 엔진 동시성 모델</h2>
+      <p class="lede reveal d1">채널당 스레드 1개가 공유 Engine 2개에 락 없이 접근, 캡처→전처리→추론→후처리→렌더를 반복한다.</p>
+    </div>
+
+    <h3 class="reveal d2">1) 채널 6개, 스레드 6개 — 캡처는 독립적</h3>
+    <div class="arch-row reveal d2">
+      <div class="arch-channel">CH 1<br>Thread</div>
+      <div class="arch-channel">CH 2<br>Thread</div>
+      <div class="arch-channel">CH 3<br>Thread</div>
+      <div class="arch-channel">CH 4<br>Thread</div>
+      <div class="arch-channel">CH 5<br>Thread</div>
+      <div class="arch-channel">CH 6<br>Thread</div>
+    </div>
+
+    <h3 class="reveal d3" style="margin-top:2rem;">2) 각 스레드가 공유하는 두 Engine (락 없음)</h3>
+    <div class="arch-stage-row reveal d3">
+      <div class="arch-box"><h5>GStreamer 캡처</h5>rtspsrc→h264depay→avdec→BGR, appsink drop=true (항상 최신 프레임)</div>
+      <div class="arch-arrow">→</div>
+      <div class="arch-box"><h5>전처리</h5>letterbox 640² (검출기) / 크롭 512² (제거기)</div>
+      <div class="arch-arrow">→</div>
+      <div class="arch-box shared"><h5>Engine::RunAsync</h5>공유 detector/remover 인스턴스 — thread-safe 계약</div>
+      <div class="arch-arrow">→</div>
+      <div class="arch-box"><h5>후처리 + 렌더</h5>박스 디코딩, 마스크 임계값, 그리드 오버레이</div>
+    </div>
+
+    <div class="callout fact-callout reveal d4 concurrency-note">
+      <strong>Fact — 동시성 계약.</strong> <code>Start()</code> 이후 <code>Run/RunAsync/Wait</code>는 락 없이 호출 가능 — 엔진 상태는 불변, job 추적은 어댑터의 mutex가 보호. onnx만 동기 전용. <span class="badge evidence">engine.h:22-31</span>
+    </div>
+    <div class="callout reveal d5">
+      <strong>Fact.</strong> 채널당 Engine을 따로 만들면 NPU 메모리 오버플로 발생 — 2개 Engine 공유 구조로 해결. <span class="badge evidence">BENCHMARK_RESULTS_20260604.md:127</span>
+    </div>
+
+    <h3 class="reveal" style="margin-top:2.2rem;">런타임 어댑터 3종</h3>
+    <div class="feature-grid reveal d1" style="margin-top:1rem;">
+      <div class="feature-card"><h4>deepx</h4><p>DXRT를 통해 실제 M1 NPU에서 .dxnn 추론. 비동기 지원.</p></div>
+      <div class="feature-card"><h4>onnx</h4><p>ONNX Runtime CPU 세션. 동기 전용, float32 dtype 엄격 검사.</p></div>
+      <div class="feature-card"><h4>fake</h4><p>입력을 그대로 되돌리는 echo 어댑터 — DXRT 없는 호스트에서 테스트용.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 5b. SCALING & DETECTION DEMOS ============ -->
+<section class="slide" id="demos" aria-label="채널 확장 벤치마크 및 이상탐지 데모">
+  <div class="slide-inner">
+    <div class="section-head">
+      <div class="eyebrow reveal">Scaling &amp; Validation Demos</div>
+      <h2 class="reveal">4채널 병목에서 16채널 최적화까지, 그리고 실사고 재현</h2>
+      <p class="lede reveal d1"><code>assets/</code> 파일명 순서(01~05)를 따른 5개 영상 — 채널 확장 검증과 실제 이상탐지 재현 결과.</p>
+    </div>
+
+    <div class="callout reveal d2">
+      <strong>Assumption.</strong> 저장소의 6채널 벤치마크와는 별개인 확장 테스트 영상. 정확한 실행 조건은 파일명 이상 문서화되어 있지 않다.
+    </div>
+
+    <h3 class="reveal d2" style="margin-top:2.2rem;">채널 확장 진행 — 병목 확인 → 최적화</h3>
+    <div class="scale-row reveal d3">
+      <div class="scale-card">
+        <video controls preload="metadata" playsinline>
+          <source src="assets/01_04_%EC%B1%84%EB%84%90_BottleNeckAtCPU.mp4" type="video/mp4">
+        </video>
+        <h4>01 · 4채널 — CPU 병목</h4>
+        <p>채널 확장 이전, CPU 바운드 병목이 드러나는 베이스라인 구간.</p>
+        <span class="badge risk">BOTTLENECK</span>
+      </div>
+      <div class="scale-arrow" aria-hidden="true">→</div>
+      <div class="scale-card">
+        <video controls preload="metadata" playsinline>
+          <source src="assets/02_09_%EC%B1%84%EB%84%90_%ED%85%8C%EC%8A%A4%ED%8A%B8.mp4" type="video/mp4">
+        </video>
+        <h4>02 · 9채널 테스트</h4>
+        <p>채널 수를 9개로 늘려 재측정한 중간 검증 단계.</p>
+        <span class="badge stack">SCALE TEST</span>
+      </div>
+      <div class="scale-arrow" aria-hidden="true">→</div>
+      <div class="scale-card">
+        <video controls preload="metadata" playsinline>
+          <source src="assets/03_12%EC%B1%84%EB%84%90_%ED%85%8C%EC%8A%A4%ED%8A%B8.mp4" type="video/mp4">
+        </video>
+        <h4>03 · 12채널 테스트</h4>
+        <p>12채널까지 확장한 부하 상태에서의 동작 검증.</p>
+        <span class="badge stack">SCALE TEST</span>
+      </div>
+      <div class="scale-arrow" aria-hidden="true">→</div>
+      <div class="scale-card">
+        <video controls preload="metadata" playsinline>
+          <source src="assets/04_16%EC%B1%84%EB%84%90_%EC%B5%9C%EC%A0%81%ED%99%94.mov">
+        </video>
+        <h4>04 · 16채널 최적화 (최종)</h4>
+        <p>최적화 적용 후 16채널까지 안정적으로 처리한 최종 확장 결과.</p>
+        <span class="badge fact pulse">OPTIMIZED</span>
+      </div>
+    </div>
+
+    <h3 class="reveal d4" style="margin-top:2.4rem;">실제 이상탐지 재현</h3>
+    <div class="spotlight-video reveal d4">
+      <video controls preload="metadata" playsinline>
+        <source src="assets/05_%EB%B9%84%EC%A0%95%EC%83%81_%ED%83%90%EC%A7%80_%EA%B2%B0%EA%B3%BC_web.mp4" type="video/mp4">
+      </video>
+      <div class="spotlight-copy">
+        <h4>05 · 비정상 탐지 결과</h4>
+        <p>검출기+배경제거 파이프라인이 실제 이상/사고 상황을 재현·탐지한 결과. 확장성 검증(01~04) 이후 실전 시나리오 검증 자료.</p>
+        <span class="badge fact">FACT · 실측 데모 영상</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 6. FEATURES ============ -->
+<section class="slide" id="features" aria-label="주요 기능">
+  <div class="slide-inner">
+    <div class="section-head">
+      <div class="eyebrow reveal">Key Features</div>
+      <h2 class="reveal">기능별 카드</h2>
+    </div>
+    <div class="feature-grid">
+      <div class="feature-card reveal"><h4>멀티 백엔드 런타임 추상화</h4><p>manifest의 "runtime" 문자열 하나로 deepx/onnx/fake 전환, 재컴파일 불필요.</p><span class="badge evidence">runtime_adapter_factory.cpp:10-24</span></div>
+      <div class="feature-card reveal d1"><h4>코드+테스트로 강제되는 스레드 세이프티</h4><p>동시성 계약을 문서와 코드, 전용 테스트 2종으로 삼중 보증.</p><span class="badge evidence">engine.h:22-31</span></div>
+      <div class="feature-card reveal d2"><h4>frame-skip 제어</h4><p>N프레임마다 한 번만 검출기를 호출해 NPU 부하 조절, 운영 권장값 7.</p><span class="badge evidence">rtsp_6ch.cpp:254-256</span></div>
+      <div class="feature-card reveal d3"><h4>remover-queue-depth 제어</h4><p>배경제거 큐 깊이를 CLI로 제한해 지연-처리량 트레이드오프 조정.</p><span class="badge evidence">rtsp_6ch.cpp:258-264</span></div>
+      <div class="feature-card reveal d4"><h4>자동 RTSP 재연결</h4><p>2초 무응답/EOS/ERROR 시 300ms 백오프 후 파이프라인 재시작.</p><span class="badge evidence">rtsp_6ch.cpp:162-234</span></div>
+      <div class="feature-card reveal d5"><h4>NPU 코어 바인딩</h4><p>dxrt_bound_option으로 검출기·제거기를 서로 다른 NPU 코어에 배치해 경합 회피.</p><span class="badge evidence">detector/remover.deepx.json</span></div>
+      <div class="feature-card reveal"><h4>13개 CTest 유닛 테스트</h4><p>계약·동시성·수명주기·파서·어댑터 팩토리를 커버.</p><span class="badge evidence">engine/CMakeLists.txt:70-110</span></div>
+      <div class="feature-card reveal d1"><h4>1.2MB 동기 복사 제거</h4><p>요청 텐서를 move로 전달해 프레임당 불필요한 복사를 없앰.</p><span class="badge evidence">preprocess.cpp:70-74</span></div>
+      <div class="feature-card reveal d2"><h4>픽셀→물리 단위 변환</h4><p>CM_PER_PIXEL=0.21835 보정값으로 다리 높이를 미터 단위로 표시.</p><span class="badge evidence">constants.h:13, render.cpp:73</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 7. STRENGTHS ============ -->
+<section class="slide" id="strengths" aria-label="강점 및 설계 의도">
+  <div class="slide-inner">
+    <div class="section-head">
+      <div class="eyebrow reveal">Why It Was Built / Strengths</div>
+      <h2 class="reveal">근거 기반 강점 분석</h2>
+      <p class="lede reveal d1">과장된 수식어 대신, 코드·문서·커밋 이력에서 직접 확인되는 근거만 카드화했다.</p>
+    </div>
+    <div class="strength-grid">
+      <div class="strength-card reveal">
+        <h4>엔진/앱 책임 분리가 구조적으로 강제됨</h4>
+        <p>"모델 특화 로직=앱, 모델 무관 인프라=엔진" 원칙이 코드에도 반영 — <code>PostprocessTensors</code>는 identity pass, 박스 디코딩은 전부 앱에 있다.</p>
+        <div class="evidence-list"><span class="badge evidence">docs/collector-design-brief.md:21</span><span class="badge evidence">postprocess.cpp:27-46</span></div>
+      </div>
+      <div class="strength-card reveal d1">
+        <h4>규모 대비 균형 잡힌 테스트 커버리지</h4>
+        <p>코어 1,293줄 + 헤더 478줄 규모에 13개 유닛 테스트가 통과 상태로 유지된다.</p>
+        <div class="evidence-list"><span class="badge evidence">docs/engine-status-review.md:9-10</span></div>
+      </div>
+      <div class="strength-card reveal d2">
+        <h4>의존성 최소화</h4>
+        <p>벤더링 의존성은 nlohmann/json 단일 헤더뿐 — 나머지는 시스템 라이브러리와 벤더 SDK로 한정.</p>
+        <div class="evidence-list"><span class="badge evidence">third_party/nlohmann/json.hpp</span></div>
+      </div>
+      <div class="strength-card reveal d3">
+        <h4>예외 대신 Status/ErrorCode로 경계를 넘김</h4>
+        <p>모든 엔진 API는 <code>Status{ErrorCode,message}</code>를 반환 — 내부 예외는 어댑터 경계에서 포착·매핑.</p>
+        <div class="evidence-list"><span class="badge evidence">error.h:27-39</span><span class="badge evidence">deepx_runtime_adapter.cpp:159-296</span></div>
+      </div>
+      <div class="strength-card reveal d4">
+        <h4>데이터로 검증한 뒤 확정한 아키텍처</h4>
+        <p>12개 구성(언어×런타임×동기성)을 실측 비교한 뒤 "C++ DXRT 비동기 큐"를 채택했다.</p>
+        <div class="evidence-list"><span class="badge evidence">BENCHMARK_RESULTS_20260604.md:8-20</span></div>
+      </div>
+      <div class="strength-card reveal d5">
+        <h4>비동기 파이프라이닝으로 실측 처리량 향상</h4>
+        <p>동기 91.86 FPS → 비동기 큐 적용 후 129.33 FPS로 향상된 것을 벤치마크로 확인.</p>
+        <div class="evidence-list"><span class="badge evidence">BENCHMARK_RESULTS_20260604.md:100-104</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 8. TECH STACK ============ -->
+<section class="slide" id="techstack" aria-label="기술 스택">
+  <div class="slide-inner">
+    <div class="section-head">
+      <div class="eyebrow reveal">Tech Stack &amp; Dependencies</div>
+      <h2 class="reveal">언어·프레임워크·외부 의존성</h2>
+    </div>
+    <div class="stack-cloud reveal d1">
+      <span class="badge stack">C++17</span>
+      <span class="badge stack">CMake ≥ 3.16</span>
+      <span class="badge stack">GStreamer 1.0 / gstreamer-app</span>
+      <span class="badge stack">OpenCV4</span>
+      <span class="badge stack">DEEPX DXRT (벤더 SDK)</span>
+      <span class="badge stack">ONNX Runtime C++</span>
+      <span class="badge stack">nlohmann/json (vendored)</span>
+      <span class="badge stack">Python — pandas/numpy/matplotlib/jupyter (벤치마크 전용)</span>
+    </div>
+    <div class="table-scroll reveal d2">
+    <table class="stack-table">
+      <thead><tr><th>레이어</th><th>구성</th><th>비고</th></tr></thead>
+      <tbody>
+        <tr><td>언어</td><td>C++17</td><td>engine/apps/benchmarks 공통</td></tr>
+        <tr><td>빌드</td><td>CMake ≥ 3.16</td><td>engine을 소스 빌드 (버전 핀 없음)</td></tr>
+        <tr><td>영상 캡처</td><td>GStreamer 1.0 + gstreamer-app</td><td>rtspsrc TCP, 저지연 drop 모드</td></tr>
+        <tr><td>영상 처리</td><td>OpenCV4</td><td>크롭/리사이즈/오버레이/그리드</td></tr>
+        <tr><td>NPU 추론</td><td>DEEPX DXRT</td><td>M1 3코어</td></tr>
+        <tr><td>CPU 비교 추론</td><td>ONNX Runtime C++</td><td>DXRT 없는 호스트용</td></tr>
+        <tr><td>매니페스트 파싱</td><td>nlohmann/json</td><td>유일한 벤더링 서드파티</td></tr>
+        <tr><td>벤치마크 분석</td><td>Python (pandas/matplotlib/jupyter)</td><td>프로덕션 경로 아님</td></tr>
+        <tr><td>타깃 하드웨어</td><td>Raspberry Pi + DEEPX M1 NPU</td><td>x86_64는 벤치마크 전용</td></tr>
+      </tbody>
+    </table>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 9. CLOSING ============ -->
+<section class="slide" id="closing" aria-label="마무리">
+  <div class="slide-inner">
+    <div class="section-head">
+      <div class="eyebrow reveal">Closing / Next Steps</div>
+      <h2 class="reveal">로드맵과 남은 리스크</h2>
+      <p class="lede reveal d1">문서에 명시된, 아직 답변·착수되지 않은 항목을 정리했다.</p>
+    </div>
+
+    <div class="roadmap reveal d2">
+      <div class="roadmap-item">
+        <h4>모델 아티팩트 버전 관리 (MODELS.md)</h4>
+        <p>체크섬·버전 추적 파일(MODELS.md) 계획만 있고 미생성. Git LFS도 미사용.</p>
+      </div>
+      <div class="roadmap-item">
+        <h4>timeout_ms 실제 적용</h4>
+        <p><code>timeout_ms</code>는 저장만 되고 미사용 — NPU가 멈추면 <code>Wait()</code>이 무한 대기할 수 있다.</p>
+      </div>
+      <div class="roadmap-item">
+        <h4>5-저장소 분리 (engine / app / benchmark / model-artifact / model-training)</h4>
+        <p>현재 모노레포를 계약이 분명한 5개 저장소로 나누는 계획이 design-brief에만 존재.</p>
+      </div>
+      <div class="roadmap-item">
+        <h4>Collector + VAE 이상탐지 파이프라인</h4>
+        <p>검출기 뒤에 3번째 Engine으로 이상탐지 단계를 추가하는 설계만 있고 미구현.</p>
+      </div>
+    </div>
+
+    <h3 class="reveal d3" style="margin-top:2.4rem;">알려진 리스크 (문서에 근거)</h3>
+    <div class="risk-accordion reveal d4">
+      <details>
+        <summary><span class="badge risk">RISK</span> INT8 양자화 파이프라인이 저장소 밖에 있어 재현·감사가 불가능</summary>
+        <div class="risk-body">캘리브레이션·양자화 기록이 없어 재현·감사하려면 외부 dx-all-suite 이력에 의존해야 한다.</div>
+      </details>
+      <details>
+        <summary><span class="badge risk">RISK</span> NPU 사용률 텔레메트리가 깨져 있음</summary>
+        <div class="risk-body">커스텀 샘플러가 추론 중에도 0.0%를 반환 — idle이 아니라 계측 미노출로 해석해야 한다. <span class="badge evidence">BENCHMARK_RESULTS_20260604.md:136-147</span></div>
+      </details>
+      <details>
+        <summary><span class="badge risk">RISK</span> 검출기 출력 디코딩이 모델 내부 구조에 강하게 결합</summary>
+        <div class="risk-body">8-float 레이아웃과 class 필터링이 매니페스트로 검증되지 않아, 출력 레이아웃이 바뀌면 조용히 오동작할 수 있다. <span class="badge evidence">inference.cpp:80-125</span></div>
+      </details>
+      <details>
+        <summary><span class="badge risk">RISK</span> 고정 300ms 재연결 백오프, 운영 알림 없음</summary>
+        <div class="risk-body">미디어 서버 다운 시 무한 재시도는 설계대로지만 운영자 알림 경로가 없다. <span class="badge evidence">docs/engine-status-review.md:54</span></div>
+      </details>
+      <details>
+        <summary><span class="badge risk">RISK</span> CI 파이프라인 부재</summary>
+        <div class="risk-body">CI 설정이 없어 13개 CTest는 수동 실행에만 의존한다.</div>
+      </details>
+    </div>
+  </div>
+</section>
+
+<footer class="slide" id="colophon">
+  <div class="slide-inner">
+    <p>pantograph-edge 저장소 분석 기반 자동 생성. Fact/Assumption 라벨은 CLAUDE.md 방법론을 따른다.</p>
+  </div>
+</footer>
+
+<script src="main.js"></script>
+</body>
+</html>

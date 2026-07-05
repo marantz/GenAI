@@ -16,6 +16,9 @@ venv/
 *.log
 run.log
 
+# MP4
+*.mp4
+
 # Claude Code 로컬 설정
 **/.claude/settings.local.json
 
