@@ -8,6 +8,12 @@
 #   2) 받은 영상이 H264가 아닐 때(VP9/AV1)만 ffmpeg로 H264/AAC 재인코딩합니다.
 #   3) 즉, 꼭 필요할 때만 재인코딩하여 시간/화질을 아낍니다.
 #
+# 파일명:
+#   제목/영상ID 대신 "YYYYMMDD_HHmm_길이초_프레임수.ext" 형식으로 저장합니다.
+#   - 길이초: 영상 길이(초, 소수점 버림)
+#   - 프레임수: 16fps 기준 전체 영상 프레임수(길이초 * 16, 반올림)
+#   예) 15초 영상 → 20260705_1430_15_240.mp4
+#
 # 사용법:
 #   ./yt-shorts-h264.sh                 # 다운로드 디렉토리 지정 후 URL을 반복 입력
 #   ./yt-shorts-h264.sh -o ~/Downloads  # 다운로드 디렉토리를 미리 지정
@@ -76,6 +82,30 @@ reencode_to_h264() {
   mv -f "$tmp" "$f"
 }
 
+# 영상 길이를 기준으로 "YYYYMMDD_HHmm_길이초_프레임수.ext" 형식의 새 경로를 계산
+compute_final_path() {
+  local f="$1"
+  local dir ext duration len_sec frames16 ts base candidate n
+
+  dir="$(dirname "$f")"
+  ext="${f##*.}"
+  duration=$(ffprobe -v error -show_entries format=duration -of default=nw=1:nk=1 "$f") \
+    || { echo "  ! 길이 확인 실패: $f" >&2; return 1; }
+
+  len_sec=$(awk -v d="$duration" 'BEGIN{printf "%d", d}')
+  frames16=$(awk -v d="$duration" 'BEGIN{printf "%d", d*16+0.5}')
+  ts=$(date +%Y%m%d_%H%M)
+  base="${ts}_${len_sec}_${frames16}"
+
+  candidate="$dir/${base}.${ext}"
+  n=2
+  while [[ -e "$candidate" ]]; do
+    candidate="$dir/${base}_${n}.${ext}"
+    n=$((n + 1))
+  done
+  printf '%s' "$candidate"
+}
+
 download_one() {
   local url="$1"
   echo "▶ 처리 중: $url"
@@ -95,6 +125,11 @@ download_one() {
     echo "  ! 다운로드 결과 파일을 찾지 못했습니다: $url" >&2
     return 1
   fi
+
+  local finalpath
+  finalpath=$(compute_final_path "$filepath") || return 1
+  mv -f "$filepath" "$finalpath"
+  filepath="$finalpath"
 
   reencode_to_h264 "$filepath"
   echo "✓ 완료: $filepath"
