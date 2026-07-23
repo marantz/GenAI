@@ -19,7 +19,7 @@ import sys
 from openai import OpenAI
 from PIL import Image
 
-IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp"}
+IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp", ".avif", ".heic", ".heif"}
 NOT_FEMALE = "NOT_FEMALE"
 
 # 주 피사체 판별 + 얼굴 제외 규칙은 모든 focus 모드 공통.
@@ -82,6 +82,11 @@ def encode_image(path, max_size):
 def one_line(text):
     """CR/LF 및 연속 공백을 단일 공백으로 축약한 한 줄 문자열."""
     return re.sub(r"\s+", " ", text).strip()
+
+
+def is_female_response(text):
+    """VLM 응답이 '여성 사진'으로 판정됐는지 여부."""
+    return NOT_FEMALE not in text.strip().upper()
 
 
 def load_processed(lists_path):
@@ -169,7 +174,7 @@ def main():
             continue
 
         text = raw.strip()
-        is_female = NOT_FEMALE not in text.upper()
+        is_female = is_female_response(text)
 
         if is_female:
             line = one_line(text)
