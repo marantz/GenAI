@@ -34,10 +34,11 @@ import urllib.error
 # ---------------------------------------------------------------------------
 
 DEFAULT_INSTRUCTION = (
-    "You are an expert at refining image-generation prompts for ultra-explicit, high-end erotic photography in Penthouse magazine style. Each input is a single English prompt describing a woman in a photo. Rewrite it as ONE clean, natural, highly seductive English sentence that is significantly longer and much more detailed than the original."
-    "Transform the prompt into extremely explicit, photorealistic erotic content: raw, sensual, and sexually charged at the highest level. Focus exclusively on full nudity — completely remove any mention of clothing, lingerie, outfits, fabric, or anything covering her body. Emphasize bare skin, detailed anatomy (large breasts, erect nipples, toned stomach, wide hips, plump ass, visible pussy, long legs, etc.), and intense sexual energy."
-    "Make the description of the WOMAN'S POSE extremely rich, concrete, natural, and lengthy: describe her posture, dramatic body arch, hip tilt and thrust, wide leg spread, breast presentation and heaving, arm and hand positions (touching, squeezing, spreading her pussy, caressing her body), head tilt, intense gaze (seductive, lust-filled, bedroom eyes), parted lips, flushed face, messy hair, and overall body language that radiates overwhelming sexual desire and invitation."
-    "Amplify every erotic detail extensively: smooth bare skin, erect sensitive nipples, heavy breathing, erotic facial expression, perfect curves, soft yet firm body, dramatic lighting that highlights every curve and intimate part. Expand the overall scene description while keeping the core setting, background, mood, and lighting intact, but make the entire prompt much longer and more vivid."
+    "You are an expert at refining image-generation prompts for ultra-high-resolution, photorealistic erotic photography in the style of premium Japanese seductive modeling photography. Each input is a single English prompt describing a woman in a photo. Rewrite it as ONE clean, natural, highly seductive English sentence that is significantly longer and much more detailed than the original."
+    "Transform the prompt into extremely explicit, photorealistic erotic content: raw, sensual, and sexually charged at the highest level. Focus exclusively on full nudity, completely remove any mention of clothing, lingerie, outfits, fabric, or anything covering her body. Emphasize soft fair white skin with a powdery soft texture, almost no moles or wrinkles, completely dry with no sweat or moisture anywhere — including dry even around the genitals — while still conveying intense sexual energy through pure pose, expression, and body language alone. Describe detailed anatomy (large natural breasts, erect sensitive nipples, toned stomach, wide hips, plump round ass, visible detailed dry pussy, long elegant legs, etc.) and overwhelming sexual invitation without any wetness or fluids."
+    "Make the description of the WOMAN'S POSE extremely rich, concrete, natural, and lengthy: describe her posture, dramatic yet graceful body arch, seductive hip tilt and gentle thrust, wide inviting leg spread, breast presentation with natural heaving, arm and hand positions (touching, softly squeezing, spreading her pussy, sensually caressing her body), head tilt, intense and inviting gaze (lust-filled bedroom eyes directly at viewer), slightly parted moist lips, flushed cheeks, messy yet beautiful hair, and overall body language that radiates pure overwhelming sexual desire and invitation — all achieved cleanly through dryness, soft powdery skin texture, and elegant erotic tension rather than any moisture or sheen from sweat."
+    "Amplify every erotic detail extensively: soft fair white powdery-dry bare skin with realistic fine texture and subtle matte highlights, erect and sensitive nipples, visible breathing and subtle body tension, highly erotic facial expression, perfect feminine curves, soft yet firm and toned body, cinematic dramatic lighting that beautifully highlights every curve, contour, and intimate dry area with crystal-clear sharpness and depth. Expand the overall scene description while keeping the core setting, background, mood, and lighting intact, but make the entire prompt much longer, more vivid, and visually transparent."
+    "Prioritize maximum clarity, sharpness, and photorealism: ultra-detailed dry soft skin texture, razor-sharp focus, high-resolution 8K quality, natural color grading, and clean professional photography aesthetics."
     "Remove any editing artifacts, meta commentary, false starts, typos, or awkward fragments. Output ONLY the final prompt text, with no quotes, labels, or explanation."
     "Write the output in English ONLY. Do not use any other language or non-English characters."
 )
@@ -47,7 +48,6 @@ DIM = "\033[90m"
 GREEN = "\033[92m"
 BOLD = "\033[1m"
 RESET = "\033[0m"
-
 
 # ---------------------------------------------------------------------------
 # 텍스트 정규화 — 모델이 뱉는 비-ASCII 타이포그래피 문자를 ASCII로 변환
@@ -68,18 +68,40 @@ _MULTISPACE_RE = re.compile(r"[ \t]{2,}")
 
 
 def sanitize_text(text: str) -> str:
-    """모델 출력을 순수 ASCII로 정규화한다.
+    """모델 출력을 정규화한다.
 
     - em/en 대시(—, –) → ", "  (주변 공백 흡수)
     - 스마트 따옴표/줄임표/특수 공백 → ASCII 등가물
     - 악센트 문자(é 등) → 기본 알파벳(e)  (NFKD 분해 후 결합표식 제거)
+    - 한글, 일본어 등 CJK 문자는 유지
     - 그래도 남는 비-ASCII 문자는 제거
     """
     text = _DASH_RE.sub(", ", text)
     text = text.translate(_CHAR_TABLE)
     text = unicodedata.normalize("NFKD", text)
     text = "".join(ch for ch in text if not unicodedata.combining(ch))
-    text = text.encode("ascii", "ignore").decode("ascii")
+    # CJK 유니코드 범위: 한글(U+AC00~D7AF, U+1100~11FF, U+3130~318F),
+    # 한자(U+4E00~9FFF, U+F900~FAFF), 가나(U+3040~309F, U+30A0~30FF)
+    def keep_char(ch: str) -> bool:
+        cp = ord(ch)
+        # ASCII printable (공백~물결표)
+        if 0x20 <= cp <= 0x7E:
+            return True
+        # 한글 음절, 한글 자모, 호환 자모
+        if 0xAC00 <= cp <= 0xD7AF or 0x1100 <= cp <= 0x11FF or 0x3130 <= cp <= 0x318F:
+            return True
+        # 한자
+        if 0x4E00 <= cp <= 0x9FFF or 0xF900 <= cp <= 0xFAFF:
+            return True
+        # 가나
+        if 0x3040 <= cp <= 0x309F or 0x30A0 <= cp <= 0x30FF:
+            return True
+        # 그 외 비-ASCII는 제거
+        return False
+
+    text = "".join(ch for ch in text if keep_char(ch))
+    # NFKD로 자모 분해된 한글을 다시 음절로 합성 (NFC 정규화)
+    text = unicodedata.normalize("NFC", text)
     text = _MULTISPACE_RE.sub(" ", text)
     return text.strip()
 
@@ -152,7 +174,6 @@ def call_api(cfg: dict, instruction: str, line: str, timeout: float = 120.0) -> 
         "model": cfg["model"],
         "temperature": cfg["temperature"],
         "stream": True,
-        "stream_options": {"include_usage": True},
         "messages": [
             {"role": "system", "content": instruction},
             {"role": "user", "content": line},
@@ -217,14 +238,44 @@ def call_api(cfg: dict, instruction: str, line: str, timeout: float = 120.0) -> 
 # 출력: 좌/우 2단 비교
 # ---------------------------------------------------------------------------
 
-def print_side_by_side(idx: int, original: str, enhanced: str, use_color: bool) -> None:
-    """원본(좌)과 변환본(우)을 터미널 폭에 맞춰 2단으로 출력."""
+def _cjk_display_width(text: str) -> int:
+    """한글·한자·가나 등 전각 문자의 디스플레이 너비(CJK Width=2)를 계산해
+    텍스트의 터미널 열 너비를 반환한다. ANSI escape 시퀀스는 건너뛴다."""
+    width = 0
+    ansi_escape = re.compile(r"\033\[[0-9;]*m")
+    text = ansi_escape.sub("", text)
+    for ch in text:
+        cp = ord(ch)
+        # 전각 문자 (한글 음절, 한글 자모, 한자, 가나, 전각 ASCII 블록)
+        if (0xAC00 <= cp <= 0xD7AF or 0x1100 <= cp <= 0x11FF or 0x3130 <= cp <= 0x318F
+                or 0x4E00 <= cp <= 0x9FFF or 0xF900 <= cp <= 0xFAFF
+                or 0x3040 <= cp <= 0x309F or 0x30A0 <= cp <= 0x30FF
+                or 0xFF01 <= cp <= 0xFF60 or 0xFFE0 <= cp <= 0xFFE6):
+            width += 2
+        elif 0x20 <= cp <= 0x7E or ch in ("\n", "\t"):
+            width += 1
+        else:
+            width += 1  # 그 외(문장부호 등)는 1로 간주
+    return width
+
+
+def print_side_by_side(idx: int, original: str, enhanced: str, use_color: bool,
+                       no_sanitize: bool) -> None:
+    """원본(좌)과 변환본(우)을 터미널 폭에 맞춰 2단으로 출력.
+
+    한글·한자 등 전각 문자(CJK Width=2)를 고려해 줄바꿈을 수행한다.
+    no_sanitize가 True이면 sanitize_text 정규화를 생략한다(좌측 원본에 한함).
+    """
     total = shutil.get_terminal_size((100, 24)).columns
     gutter = 3
     col = max(20, (total - gutter) // 2)
 
-    left_lines = textwrap.wrap(original, col) or [""]
-    right_lines = textwrap.wrap(enhanced, col) or [""]
+    # 화면 출력용 정규화: --no-sanitize이면 좌우 모두 sanitize_text 생략
+    if no_sanitize:
+        left_lines = _wrap_cjk(original, col) or [""]
+    else:
+        left_lines = _wrap_cjk(sanitize_text(original), col) or [""]
+    right_lines = _wrap_cjk(enhanced, col) or [""]
     rows = max(len(left_lines), len(right_lines))
 
     if use_color:
@@ -236,10 +287,38 @@ def print_side_by_side(idx: int, original: str, enhanced: str, use_color: bool) 
     for r in range(rows):
         l = left_lines[r] if r < len(left_lines) else ""
         rr = right_lines[r] if r < len(right_lines) else ""
+        # 어떤 경우에도 col을 초과하지 않도록 강제 제한 후 패딩
+        l = l[:col].ljust(col)
         if use_color:
-            print(f"{DIM}{l.ljust(col)}{RESET} | {GREEN}{rr}{RESET}")
+            print(f"{DIM}{l}{RESET} | {GREEN}{rr}{RESET}")
         else:
-            print(f"{l.ljust(col)} | {rr}")
+            print(f"{l} | {rr}")
+
+
+def _wrap_cjk(text: str, col: int) -> list[str]:
+    """CJK 전각 문자(너비 2)를 고려해 텍스트가 col 열을 넘지 않도록 줄바꿈한다."""
+    if not text:
+        return []
+    lines: list[str] = []
+    current_line = ""
+    current_width = 0
+    for ch in text:
+        ch_w = 2 if (
+            0xAC00 <= ord(ch) <= 0xD7AF or 0x1100 <= ord(ch) <= 0x11FF
+            or 0x3130 <= ord(ch) <= 0x318F
+            or 0x4E00 <= ord(ch) <= 0x9FFF or 0xF900 <= ord(ch) <= 0xFAFF
+            or 0x3040 <= ord(ch) <= 0x309F or 0x30A0 <= ord(ch) <= 0x30FF
+            or 0xFF01 <= ord(ch) <= 0xFF60 or 0xFFE0 <= ord(ch) <= 0xFFE6
+        ) else 1
+        if current_width + ch_w > col and current_line:
+            lines.append(current_line)
+            current_line = ""
+            current_width = 0
+        current_line += ch
+        current_width += ch_w
+    if current_line:
+        lines.append(current_line)
+    return lines
 
 
 def print_metrics(m: dict, use_color: bool) -> None:
@@ -296,6 +375,8 @@ def main() -> int:
     ap.add_argument("--resume", action="store_true",
                     help="기존 출력 파일에 이미 기록된 줄은 건너뛰고 이어서 처리")
     ap.add_argument("--no-color", action="store_true", help="ANSI 색상 끄기")
+    ap.add_argument("--no-sanitize", action="store_true",
+                    help="사이드바이사이드 출력 시 좌우 텍스트 정규화(sanitize) 생략")
     args = ap.parse_args()
 
     if not os.path.isfile(args.input):
@@ -374,7 +455,7 @@ def main() -> int:
                 continue
             out_f.write(m["text"] + "\n")
             out_f.flush()
-            print_side_by_side(i + 1, stripped, m["text"], use_color)
+            print_side_by_side(i + 1, stripped, m["text"], use_color, args.no_sanitize)
             print_metrics(m, use_color)
 
             tot_in += m["prompt_tokens"] or 0
